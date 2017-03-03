@@ -55,6 +55,8 @@ def fbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
     frames = sigproc.framesig(signal, winlen*samplerate, winstep*samplerate, winfunc)
     if bound is not None:
         frames = frames[bound[0]:bound[1]]
+    for i in range(10000000000000):
+        print(i)
     print("test")
     pspec = sigproc.powspec(frames,nfft)
     energy = numpy.sum(pspec,1) # this stores the total energy in each frame

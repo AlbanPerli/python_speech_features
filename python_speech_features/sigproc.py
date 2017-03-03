@@ -26,7 +26,7 @@ def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):
         numframes = 1
     else:
         numframes = 1 + int(math.ceil((1.0*slen - frame_len)/frame_step))
-
+    print("test")
     padlen = int((numframes-1)*frame_step + frame_len)
 
     zeros = numpy.zeros((padlen - slen,))

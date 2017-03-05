@@ -10,7 +10,7 @@ def round_half_up(number):
     return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
 
 
-def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):
+def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,)), bound=None, preprocessing=None, step=None):
     """Frame a signal into overlapping frames.
 
     :param sig: the audio signal to frame.
@@ -26,7 +26,6 @@ def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):
         numframes = 1
     else:
         numframes = 1 + int(math.ceil((1.0*slen - frame_len)/frame_step))
-    print("test")
     padlen = int((numframes-1)*frame_step + frame_len)
 
     zeros = numpy.zeros((padlen - slen,))
@@ -36,7 +35,23 @@ def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):
     indices = numpy.array(indices,dtype=numpy.int32)
     frames = padsignal[indices]
     win = numpy.tile(winfunc(frame_len),(numframes,1))
-    return frames*win
+    frame_sig = frames*win
+    if bound is not None:
+        frame_sig = frame_sig[bound[0]:bound[1]]
+    if preprocessing is not None:
+        if step <= 0:
+            frame_sig = preprocessing(frame_sig)
+        else:
+            frames_to_process = 1 + int(math.ceil((1.0*step - frame_len)/frame_step))
+            current_frame = 0
+            end_frame = frames_to_process
+            while numframes > end_frame:
+                frame_sig[current_frame:end_frame] = preprocessing(frame_sig[current_frame:end_frame])
+                current_frame = end_frame + 1
+                end_frame += frames_to_process
+            if current_frame < numframes:
+                frame_sig[current_frame:numframes] = preprocessing(frame_sig[current_frame:numframes])
+    return frame_sig
 
 
 def deframesig(frames,siglen,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):
@@ -78,8 +93,8 @@ def magspec(frames,NFFT):
     :param NFFT: the FFT length to use. If NFFT > frame_len, the frames are zero-padded. 
     :returns: If frames is an NxD matrix, output will be Nx(NFFT/2+1). Each row will be the magnitude spectrum of the corresponding frame.
     """    
-    if numpy.shape(frames)[1] > NFFT: 
-        logging.warn('frame length (%d) is greater than FFT size (%d), frame will be truncated. Increase NFFT to avoid.', numpy.shape(frames)[1], NFFT)
+    # if numpy.shape(frames)[1] > NFFT:
+    #     logging.warn('frame length (%d) is greater than FFT size (%d), frame will be truncated. Increase NFFT to avoid.', numpy.shape(frames)[1], NFFT)
     complex_spec = numpy.fft.rfft(frames,NFFT)
     return numpy.absolute(complex_spec)
           

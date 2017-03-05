@@ -4,10 +4,11 @@ from __future__ import division
 import numpy
 from python_speech_features import sigproc
 from scipy.fftpack import dct
+import pandas as pd
 
 def mfcc(signal,samplerate=16000,winlen=0.025,winstep=0.01,numcep=13,
          nfilt=26,nfft=512,lowfreq=0,highfreq=None,preemph=0.97,ceplifter=22,appendEnergy=True,
-         winfunc=lambda x:numpy.ones((x,))):
+         winfunc=lambda x:numpy.ones((x,)), preprocessing=None, step=0, normalise=False):
     """Compute MFCC features from an audio signal.
 
     :param signal: the audio signal from which to compute features. Should be an N*1 array
@@ -23,18 +24,30 @@ def mfcc(signal,samplerate=16000,winlen=0.025,winstep=0.01,numcep=13,
     :param ceplifter: apply a lifter to final cepstral coefficients. 0 is no lifter. Default is 22. 
     :param appendEnergy: if this is true, the zeroth cepstral coefficient is replaced with the log of the total frame energy.
     :param winfunc: the analysis window to apply to each frame. By default no window is applied.
+    :param preprocessing: the function to use to preprocess the frames.
+    :param step: the size of the batch of frames the preprocessing should act on.
+    :param normalise: whether the cepstral coefficients should be normalised.
     :returns: A numpy array of size (NUMFRAMES by numcep) containing features. Each row holds 1 feature vector.
     """            
-    feat,energy = fbank(signal,samplerate,winlen,winstep,nfilt,nfft,lowfreq,highfreq,preemph,winfunc)
+    feat,energy = fbank(signal,samplerate,winlen,winstep,nfilt,nfft,lowfreq,highfreq,preemph,winfunc,preprocessing=preprocessing,step=step)
     feat = numpy.log(feat)
     feat = dct(feat, type=2, axis=1, norm='ortho')[:,:numcep]
     feat = lifter(feat,ceplifter)
     if appendEnergy: feat[:,0] = numpy.log(energy) # replace first cepstral coefficient with log of frame energy
+    if normalise:
+        feat = cmn(feat)
     return feat
+
+
+def cmn(feat):
+    feat = pd.DataFrame(feat)
+    feat = (feat - feat.mean())/feat.var()
+    return feat
+
 
 def fbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
           nfilt=26,nfft=512,lowfreq=0,highfreq=None,preemph=0.97,
-          winfunc=lambda x:numpy.ones((x,)), bound=None):
+          winfunc=lambda x:numpy.ones((x,)), preprocessing=None, step=0):
     """Compute Mel-filterbank energy features from an audio signal.
 
     :param signal: the audio signal from which to compute features. Should be an N*1 array
@@ -47,17 +60,14 @@ def fbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
     :param highfreq: highest band edge of mel filters. In Hz, default is samplerate/2
     :param preemph: apply preemphasis filter with preemph as coefficient. 0 is no filter. Default is 0.97.
     :param winfunc: the analysis window to apply to each frame. By default no window is applied.
+    :param preprocessing: the function to use to preprocess the frames.
+    :param step: the size of the batch of frames the preprocessing should act on.
     :returns: 2 values. The first is a numpy array of size (NUMFRAMES by nfilt) containing features. Each row holds 1 feature vector. The
         second return value is the energy in each frame (total energy, unwindowed)
     """          
     highfreq= highfreq or samplerate/2
     signal = sigproc.preemphasis(signal,preemph)
-    frames = sigproc.framesig(signal, winlen*samplerate, winstep*samplerate, winfunc)
-    if bound is not None:
-        frames = frames[bound[0]:bound[1]]
-    for i in range(10000000000000):
-        print(i)
-    print("test")
+    frames = sigproc.framesig(signal, winlen*samplerate, winstep*samplerate, winfunc, preprocessing=preprocessing, step=step*samplerate)
     pspec = sigproc.powspec(frames,nfft)
     energy = numpy.sum(pspec,1) # this stores the total energy in each frame
     energy = numpy.where(energy == 0,numpy.finfo(float).eps,energy) # if energy is zero, we get problems with log

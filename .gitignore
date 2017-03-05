@@ -1,6 +1,6 @@
 *.wav
 *.py[cod]
-.idea/*
+.idea
 # C extensions
 *.so
 

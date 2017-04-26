@@ -5,6 +5,8 @@ import decimal
 import numpy
 import math
 import logging
+import numpy as np
+np.random.seed(1)
 
 def round_half_up(number):
     return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
@@ -38,7 +40,7 @@ def framesig(sig,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,)), bound=N
     frame_sig = frames*win
     if bound is not None:
         frame_sig = frame_sig[bound[0]:bound[1]]
-    if preprocessing is not None:
+    if preprocessing is not None and not preprocessing == "none" and not preprocessing == "cmvn":
         if step <= 0:
             frame_sig = preprocessing(frame_sig)
         else:
